@@ -1,8 +1,9 @@
-import WebdeedsClient, {
+import {
   WebdeedsApiAdapter,
   Wallet,
   MemoryPersistenceAdapter,
   FilePersistenceAdapter,
+  WebdeedsClient,
 } from "../index";
 
 async function main() {

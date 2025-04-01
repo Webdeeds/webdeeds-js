@@ -10,6 +10,7 @@
     "build": "tsup --config tsup.config.ts",
     "build:node": "tsup src/index.ts --format cjs,esm --dts",
     "build:browser": "tsup src/index.ts --format esm --outDir dist/browser --platform browser --dts",
+    "release": "pnpm run build && changeset publish",
     "dev": "tsx src/examples/usage",
     "lint": "tsc",
     "test": "vitest run",

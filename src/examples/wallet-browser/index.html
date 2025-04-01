@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Webdeeds Wallet</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Oxygen, Ubuntu, Cantarell, "Open Sans", sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        line-height: 1.6;
+      }
+      h1 {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .deed-item {
+        border: 1px solid #eee;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .deed-metadata {
+        margin-top: 10px;
+        padding: 10px;
+        background-color: #f9f9f9;
+        border-radius: 4px;
+      }
+      button {
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        margin-right: 10px;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+      input,
+      textarea {
+        width: 100%;
+        padding: 10px;
+        margin: 10px 0;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      .actions {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+      }
+      .hidden {
+        display: none;
+      }
+      #sendForm,
+      #receiveForm {
+        margin-top: 20px;
+      }
+      select {
+        width: 100%;
+        padding: 10px;
+        margin: 10px 0;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .loading {
+        text-align: center;
+        padding: 20px;
+        font-style: italic;
+        color: #666;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Webdeeds Wallet</h1>
+
+    <div class="card">
+      <h2>Wallet Contents</h2>
+      <div id="walletContents">
+        <div class="loading">Loading wallet contents...</div>
+      </div>
+
+      <div class="actions">
+        <button id="refreshButton">Refresh Wallet</button>
+        <button id="sendButton">Send Webdeed</button>
+        <button id="receiveButton">Receive Webdeed</button>
+      </div>
+    </div>
+
+    <div id="sendForm" class="card hidden">
+      <h2>Send Webdeed</h2>
+      <div>
+        <label for="sendItemSelect">Select Item:</label>
+        <select id="sendItemSelect"></select>
+      </div>
+      <div>
+        <label for="sendAmount">Amount:</label>
+        <input type="number" id="sendAmount" min="1" value="1" />
+      </div>
+      <div class="actions">
+        <button id="confirmSendButton">Send</button>
+        <button id="cancelSendButton">Cancel</button>
+      </div>
+      <div id="sendOutput" class="hidden">
+        <h3>Output to share with recipient:</h3>
+        <textarea id="outputText" rows="5" readonly></textarea>
+        <button id="copyOutputButton">Copy to Clipboard</button>
+      </div>
+    </div>
+
+    <div id="receiveForm" class="card hidden">
+      <h2>Receive Webdeed</h2>
+      <div>
+        <label for="receiveInput">Paste the output string:</label>
+        <textarea id="receiveInput" rows="5"></textarea>
+      </div>
+      <div class="actions">
+        <button id="confirmReceiveButton">Receive</button>
+        <button id="cancelReceiveButton">Cancel</button>
+      </div>
+      <div id="receiveResult" class="hidden"></div>
+    </div>
+
+    <script type="module">
+      // Import from the browser build
+      import {
+        WebdeedsClient,
+        WebdeedsApiAdapter,
+        Wallet,
+        LocalStoragePersistenceAdapter,
+      } from "./index.browser.mjs";
+
+      // Initialize the Webdeeds client
+      const client = new WebdeedsClient({
+        // baseUrl: "http://localhost:3000", // Uncomment and modify as needed
+      });
+
+      // Create the API adapter
+      const apiAdapter = new WebdeedsApiAdapter(client);
+
+      // Create the persistence adapter (using localStorage)
+      const persistenceAdapter = new LocalStoragePersistenceAdapter(
+        "browser-wallet"
+      );
+
+      // Initialize the wallet
+      const wallet = new Wallet(persistenceAdapter, apiAdapter);
+
+      // DOM elements
+      const walletContents = document.getElementById("walletContents");
+      const refreshButton = document.getElementById("refreshButton");
+      const sendButton = document.getElementById("sendButton");
+      const receiveButton = document.getElementById("receiveButton");
+      const sendForm = document.getElementById("sendForm");
+      const receiveForm = document.getElementById("receiveForm");
+      const sendItemSelect = document.getElementById("sendItemSelect");
+      const sendAmount = document.getElementById("sendAmount");
+      const confirmSendButton = document.getElementById("confirmSendButton");
+      const cancelSendButton = document.getElementById("cancelSendButton");
+      const sendOutput = document.getElementById("sendOutput");
+      const outputText = document.getElementById("outputText");
+      const copyOutputButton = document.getElementById("copyOutputButton");
+      const receiveInput = document.getElementById("receiveInput");
+      const confirmReceiveButton = document.getElementById(
+        "confirmReceiveButton"
+      );
+      const cancelReceiveButton = document.getElementById(
+        "cancelReceiveButton"
+      );
+      const receiveResult = document.getElementById("receiveResult");
+
+      // Function to list wallet contents with metadata
+      async function listWalletContents() {
+        walletContents.innerHTML =
+          '<div class="loading">Loading wallet contents...</div>';
+
+        try {
+          const walletItems = await wallet.list();
+
+          if (walletItems.length === 0) {
+            walletContents.innerHTML = "<p>Your wallet is empty.</p>";
+            return;
+          }
+
+          let html = "";
+
+          // Process each item and fetch its metadata
+          for (const item of walletItems) {
+            html += `
+                        <div class="deed-item" data-item-id="${item.itemId}">
+                            <div>
+                                <strong>${item.itemId}</strong>: ${item.totalAmount} units
+                                <div class="deed-metadata" id="metadata-${item.itemId}">Loading metadata...</div>
+                            </div>
+                        </div>
+                    `;
+          }
+
+          walletContents.innerHTML = html;
+
+          // Fetch metadata for each item
+          for (const item of walletItems) {
+            try {
+              const registryItem = await client.registry.getItemById(
+                item.itemId
+              );
+              const metadataElement = document.getElementById(
+                `metadata-${item.itemId}`
+              );
+
+              if (metadataElement) {
+                let metadataHtml = "<h4>Metadata</h4>";
+
+                if (registryItem && registryItem.metadata) {
+                  metadataHtml += `
+                                    <div>Name: ${
+                                      registryItem.metadata.name || "N/A"
+                                    }</div>
+                                    <div>Description: ${
+                                      registryItem.metadata.description || "N/A"
+                                    }</div>
+                                `;
+
+                  if (registryItem.metadata.image) {
+                    metadataHtml += `<div><img src="${registryItem.metadata.image}" alt="${registryItem.metadata.name}" style="max-width: 100px; max-height: 100px;"></div>`;
+                  }
+                } else {
+                  metadataHtml += "<div>No metadata available</div>";
+                }
+
+                metadataElement.innerHTML = metadataHtml;
+              }
+            } catch (error) {
+              const metadataElement = document.getElementById(
+                `metadata-${item.itemId}`
+              );
+              if (metadataElement) {
+                metadataElement.innerHTML = "<div>Error loading metadata</div>";
+              }
+            }
+          }
+        } catch (error) {
+          walletContents.innerHTML = `<p>Error loading wallet contents: ${error.message}</p>`;
+        }
+      }
+
+      // Function to populate the send form with wallet items
+      async function populateSendForm() {
+        try {
+          const walletItems = await wallet.list();
+
+          if (walletItems.length === 0) {
+            alert("Your wallet is empty. Nothing to send.");
+            return false;
+          }
+
+          sendItemSelect.innerHTML = "";
+
+          walletItems.forEach((item) => {
+            const option = document.createElement("option");
+            option.value = item.itemId;
+            option.textContent = `${item.itemId}: ${item.totalAmount} units`;
+            option.dataset.maxAmount = item.totalAmount;
+            sendItemSelect.appendChild(option);
+          });
+
+          // Set initial max amount for the input
+          sendAmount.max = sendItemSelect.options[0].dataset.maxAmount;
+          sendAmount.value = 1;
+
+          return true;
+        } catch (error) {
+          alert(`Error loading wallet items: ${error.message}`);
+          return false;
+        }
+      }
+
+      // Event: Refresh wallet contents
+      refreshButton.addEventListener("click", listWalletContents);
+
+      // Event: Show send form
+      sendButton.addEventListener("click", async () => {
+        const hasItems = await populateSendForm();
+        if (hasItems) {
+          sendForm.classList.remove("hidden");
+          receiveForm.classList.add("hidden");
+          sendOutput.classList.add("hidden");
+        }
+      });
+
+      // Event: Show receive form
+      receiveButton.addEventListener("click", () => {
+        receiveForm.classList.remove("hidden");
+        sendForm.classList.add("hidden");
+        receiveResult.classList.add("hidden");
+        receiveInput.value = "";
+      });
+
+      // Event: Change selected item in send form
+      sendItemSelect.addEventListener("change", () => {
+        const selectedOption =
+          sendItemSelect.options[sendItemSelect.selectedIndex];
+        sendAmount.max = selectedOption.dataset.maxAmount;
+        sendAmount.value = Math.min(
+          sendAmount.value,
+          selectedOption.dataset.maxAmount
+        );
+      });
+
+      // Event: Confirm send
+      confirmSendButton.addEventListener("click", async () => {
+        const itemId = sendItemSelect.value;
+        const amount = parseInt(sendAmount.value, 10);
+
+        if (!itemId || isNaN(amount) || amount < 1) {
+          alert("Please select a valid item and amount.");
+          return;
+        }
+
+        try {
+          const outputToSend = await wallet.send(itemId, amount);
+          outputText.value = outputToSend;
+          sendOutput.classList.remove("hidden");
+        } catch (error) {
+          alert(`Error sending webdeed: ${error.message}`);
+        }
+      });
+
+      // Event: Cancel send
+      cancelSendButton.addEventListener("click", () => {
+        sendForm.classList.add("hidden");
+      });
+
+      // Event: Copy output to clipboard
+      copyOutputButton.addEventListener("click", () => {
+        outputText.select();
+        document.execCommand("copy");
+        alert("Output copied to clipboard!");
+      });
+
+      // Event: Confirm receive
+      confirmReceiveButton.addEventListener("click", async () => {
+        const output = receiveInput.value.trim();
+
+        if (!output) {
+          alert("Please paste a valid output string.");
+          return;
+        }
+
+        try {
+          await wallet.receive([output]);
+          receiveResult.innerHTML = "<p>Web deed received successfully!</p>";
+          receiveResult.classList.remove("hidden");
+          listWalletContents(); // Refresh wallet contents
+        } catch (error) {
+          receiveResult.innerHTML = `<p>Error receiving web deed: ${error.message}</p>`;
+          receiveResult.classList.remove("hidden");
+        }
+      });
+
+      // Event: Cancel receive
+      cancelReceiveButton.addEventListener("click", () => {
+        receiveForm.classList.add("hidden");
+      });
+
+      // Initial load of wallet contents
+      document.addEventListener("DOMContentLoaded", listWalletContents);
+    </script>
+  </body>
+</html>

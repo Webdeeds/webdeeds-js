@@ -28,7 +28,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@changesets/cli": "^2.27.1",
+    "@changesets/cli": "^2.28.1",
     "@types/node": "^22.13.14",
     "@types/prompts": "^2.4.9",
     "@types/randombytes": "^2.0.3",

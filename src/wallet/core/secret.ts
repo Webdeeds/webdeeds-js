@@ -3,7 +3,19 @@
  * In a production environment, this should be replaced with a secure
  * cryptographic implementation
  */
-import randomBytes from "randombytes";
+
+function getRandomBytes(size: number): Uint8Array {
+  if (typeof window !== "undefined" && window.crypto) {
+    // Browser environment
+    return window.crypto.getRandomValues(new Uint8Array(size));
+  } else if (typeof require !== "undefined") {
+    // Node.js environment
+    const crypto = require("crypto");
+    return crypto.randomBytes(size);
+  } else {
+    throw new Error("No crypto implementation available");
+  }
+}
 
 export class Secret {
   private value: string;
@@ -17,7 +29,9 @@ export class Secret {
    * Using cryptographically secure random bytes
    */
   static generate(): string {
-    return randomBytes(16).toString("hex");
+    return Array.from(getRandomBytes(16))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
   }
 
   toString(): string {

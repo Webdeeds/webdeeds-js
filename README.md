@@ -159,7 +159,9 @@ const persistence = new FilePersistenceAdapter("wallet.dat");
 
 #### Secret Management
 
-- **Automatic Secret Generation**: Secrets generated using [randombytes](https://www.npmjs.com/package/randombytes)
+- **Automatic Secret Generation**: Secrets generated using native cryptographic APIs:
+  - Browser: `window.crypto.getRandomValues()`
+  - Node.js: `crypto.randomBytes()`
 - **Secret Rotation**: New secrets generated upon receiving outputs
 - **Output Format**: `+amount.itemId.secret`
 

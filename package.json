@@ -1,6 +1,6 @@
 {
   "name": "webdeeds-js",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "JavaScript Client & Wallet for Webdeeds API",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -33,13 +33,11 @@
     "@types/node": "^22.13.14",
     "@types/prompts": "^2.4.9",
     "@types/randombytes": "^2.0.3",
+    "esbuild-plugin-polyfill-node": "^0.3.0",
     "openapi-typescript-codegen": "^0.27.0",
     "prompts": "^2.4.2",
     "tsup": "^8.0.2",
     "typescript": "^5.3.3",
     "vitest": "^3.0.6"
-  },
-  "dependencies": {
-    "randombytes": "^2.1.0"
   }
 }
